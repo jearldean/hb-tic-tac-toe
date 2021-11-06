@@ -1,5 +1,5 @@
 """An interactive tic tac toe game."""
-
+from termcolor import colored
 
 class Player:
     """A two-player game"""
@@ -91,7 +91,7 @@ class Game:
 
 
 def play_game():
-    game_instance = Game(Player("Fred", "X"), Player("Joe", "O"))
+    game_instance = Game(Player("Ken", colored('X', 'red')), Player("Jerry", colored('O', 'green')))
     
     turns = 0
     while game_instance.check_for_winner() is None:
