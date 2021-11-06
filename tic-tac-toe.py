@@ -4,36 +4,67 @@ from termcolor import colored
 class Player:
     """A two-player game"""
 
-    def __init__(self, name, game_piece):
-        self.name = name  # name of player
-        self.game_piece = game_piece  # whether player is X or O on the board
+    def __init__(self, name: str, token: str, color: str):
+        self.color = color  # color for the token, improves playability
+        self.name = colored(name, self.color)  # name of player
+        self.token = colored(token, self.color)  # whether player is X or O on the board
 
 
 class Move:
     """A move has one player and one board."""
 
-    def __init__(self, author: str, position: list):
+    def __init__(self, author: str, position: int):
         self.author = author  # who made the move
         self.position = position  # where the move is placed on the board
 
 
 class Board:
-    """A board has up to 9 moves."""
+    """A board has up to 9 moves.
+    
+    I have chosen this format for moves: {position: token}
+    where unoccupied spaces values are the same as the dict key.
+    Here's what one looks like midway through a game:
+    {1: '\x1b[31mX\x1b[0m', 2: '\x1b[32mO\x1b[0m', 3: '\x1b[31mX\x1b[0m', 
+    4: '\x1b[32mO\x1b[0m', 5: '\x1b[31mX\x1b[0m', 6: '\x1b[32mO\x1b[0m', 
+    7: 7, 8: 8, 9: 9}
+    So, if token is an int, it's a legal choice for gameplay. If not,
+    reject it and help the player choose again.
+    """
 
-    def __init__(self, moves):
-        self.moves = moves  # all the moves currently on the board
+    moves = None  # all the moves currently on the board
 
-    def display(board):
+    def __init__(self):
+        self.moves = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
+
+    def display(self):
         """prints out the board for users to see it."""
-        print("\n", board[0], board[1], board[2],
-              "\n", board[3], board[4], board[5],
-              "\n", board[6], board[7], board[8])
+        print("\n", self.moves[1], self.moves[2], self.moves[3],
+              "\n", self.moves[4], self.moves[5], self.moves[6],
+              "\n", self.moves[7], self.moves[8], self.moves[9])
 
-    def add_move(move_choice: int, ):
-        """takes a move as an argument, adds it to moves attribute"""
-        if move_choice not in range(9):
-            print("Choose again")
-        pass
+    def add_move(self, player):
+        """takes a player object as an argument, adds it to moves attribute
+        
+        Also, we must handle 2 invalid replies: strings and occupied ints.
+        """
+        valid_reply_int = self.validate_reply(player)
+        move_instance = Move(author=player, position=valid_reply_int)
+        self.moves[move_instance.position] = player.token
+
+    def validate_reply(self, player):
+        legal_moves_ints = []
+        legal_moves_strings = []
+        for value in self.moves:
+            try:
+                int(self.moves[value])
+                legal_moves_ints.append(self.moves[value])  # They're already ints
+                legal_moves_strings.append(str(self.moves[value]))
+            except ValueError:
+                continue
+        reply = input(f"{player.name}, please select a number:")
+        while reply not in legal_moves_strings:  # Because input() always yields STRINGS
+            reply = input(f"Try again, {player.name}. Please select an available position: {legal_moves_ints}")
+        return int(reply)
 
 
 class Game:
@@ -41,76 +72,69 @@ class Game:
     A game has two players.
     A game declares when the game is won, or a draw. Either way, gameplay ends.
 
-    2 ways: [[], [], []] or [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    I like establishing this board: board = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    We can use ints and strings to differentiate occupied spaces
+    We can use ints and strings to differentiate occupied spaces.
     """
 
     def __init__(self, player1, player2):
-        self.board = [1, 2, 3, 4, 5, 6, 7, 8, 9]  # the playing board for the game
         self.player1 = player1  # first player in game
         self.player2 = player2  # second player in game
+        self.board_instance = Board()
+        winner_token = self.gameplay_loop()
+        self.print_endgame_messages(winner_token)
         # started_at: when the game started
         # finished_at: when the game ended
 
+    def gameplay_loop(self):
+        turns = 0
+        while self.check_for_winner() is None:
+            turns += 1
+            if turns % 2 != 0:
+                current_player = self.player1
+            else:
+                current_player = self.player2
+            self.next_player(current_player)
+        return self.check_for_winner()
+
     def check_for_winner(self):
-        """End the game if a winner is declared, or a draw when board is full)"""
-        if (self.board[0] == self.board[1] == self.board[2]) or (self.board[0] == self.board[3] == self.board[6]) or (self.board[0] == self.board[4] == self.board[8]):
-            return f"{self.board[0]} wins."
-        elif (self.board[1] == self.board[4] == self.board[7]):
-            return f"{self.board[1]} wins."
-        elif (self.board[2] == self.board[5] == self.board[8]) or (self.board[2] == self.board[4] == self.board[6]):
-            return f"{self.board[2]} wins."
-        elif (self.board[3] == self.board[4] == self.board[5]):
-            return f"{self.board[3]} wins."
-        elif (self.board[6] == self.board[7] == self.board[8]):
-            return f"{self.board[6]} wins."
-        elif all(isinstance(x, str) for x in self.board):
+        """End the game if a winner is declared, or a draw when board is full)
+        
+        There are 7 possible configurations for winning, plus a draw.
+        """
+        if (self.board_instance.moves[1] == self.board_instance.moves[2] == self.board_instance.moves[3]) or (
+            self.board_instance.moves[1] == self.board_instance.moves[4] == self.board_instance.moves[7]) or (
+                self.board_instance.moves[1] == self.board_instance.moves[5] == self.board_instance.moves[9]):
+            return self.board_instance.moves[1]  # The winning token
+        elif (self.board_instance.moves[2] == self.board_instance.moves[5] == self.board_instance.moves[8]):
+            return self.board_instance.moves[2]  # The winning token
+        elif (self.board_instance.moves[3] == self.board_instance.moves[6] == self.board_instance.moves[9]) or (
+            self.board_instance.moves[3] == self.board_instance.moves[5] == self.board_instance.moves[7]):
+            return self.board_instance.moves[3]  # The winning token
+        elif (self.board_instance.moves[4] == self.board_instance.moves[5] == self.board_instance.moves[6]):
+            return self.board_instance.moves[4]  # The winning token
+        elif (self.board_instance.moves[7] == self.board_instance.moves[8] == self.board_instance.moves[9]):
+            return self.board_instance.moves[7]  # The winning token
+        elif all(isinstance(x, str) for x in self.board_instance.moves.values()):
             # No winner, but all strings means game is a draw
-            return "It's a draw."
+            return "D"  # It's a draw.
         else:
             return  # No winner yet. Gameplay continues.
 
-
     def next_player(self, current_player):
-        Board.display(self.board)
-        # Handle 2 invalid replies: strings and occupied ints.
-        reply = self.validate_reply(input(f"{current_player.name}, please select a number:"), current_player)
-        self.board[(reply-1)] = current_player.game_piece
+        self.board_instance.display()
+        self.board_instance.add_move(current_player)
 
-    def validate_reply(self, reply, player):
-        legal_moves_ints = []
-        legal_moves_strings = []
-        for index_ in range(9):
-            if isinstance(self.board[index_], int):
-                legal_moves_ints.append(self.board[index_])
-                legal_moves_strings.append(str(self.board[index_]))
-        while reply not in legal_moves_strings:
-            reply = input(f"Try again, {player.name}. Please select an available number: {legal_moves_ints}")
-        return int(reply)
-
-
-def play_game():
-    game_instance = Game(Player("Ken", colored('X', 'red')), Player("Jerry", colored('O', 'green')))
-    
-    turns = 0
-    while game_instance.check_for_winner() is None:
-        turns += 1
-        if turns % 2 == 0:
-            current_player = game_instance.player1
+    def print_endgame_messages(self, winner_token):
+        if winner_token == self.player1.token:
+            game_result = f"\n\nThree {winner_token}s in a row!"
+            congratulations = f"Congratulations, {self.player1.name}!"
+        elif winner_token == self.player2.token:
+            game_result = f"\n\nThree {winner_token}s in a row!"
+            congratulations = f"Congratulations, {self.player2.name}!"
         else:
-            current_player = game_instance.player2
-        game_instance.next_player(current_player)
+            game_result = f"\n\nIt's a draw!"
+            congratulations = f"Nobody wins!"
+        print(f"{game_result} {congratulations}")
+        self.board_instance.display()
 
-    endgame_result = game_instance.check_for_winner()
-    if game_instance.player1.game_piece in endgame_result:
-        winner_name = game_instance.player1.name
-    elif game_instance.player2.game_piece in endgame_result:
-        winner_name = game_instance.player2.name
-    else:
-        winner_name = "no one"
-    
-    print(f"\n\n{endgame_result} Congratulations, {winner_name}!")
-    Board.display(game_instance.board)
-
-play_game()
+# Allowable colors are grey, red, green, yellow, blue, magenta, cyan, white
+Game(Player("Ken", 'X', 'magenta'), Player("Jerry", 'O', 'cyan'))
