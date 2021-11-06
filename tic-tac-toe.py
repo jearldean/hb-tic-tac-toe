@@ -69,7 +69,7 @@ class Game:
             # No winner, but all strings means game is a draw
             return "It's a draw."
         else:
-            return
+            return  # No winner yet. Gameplay continues.
 
 
     def next_player(self, current_player):
